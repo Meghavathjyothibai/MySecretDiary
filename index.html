@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Secret Diary</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: hidden;
+      background-color: #fff8dc;
+    }
+
+    canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999; /* ⬅️ Bring it to top */
+  pointer-events: none; /* ⬅️ Allow clicks to pass through */
+}
+
+
+    #login-page, #diary-page {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+    }
+
+    #diary-header {
+      background-color: #fff8dc;
+      width: 100%;
+      padding: 15px 20px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+      z-index: 3;
+    }
+
+    .top-buttons {
+      position: absolute;
+      right: 20px;
+      top: 15px;
+      display: flex;
+      gap: 6px;
+      z-index: 3;
+    }
+
+    
+   .top-buttons button {
+  background-color: transparent;
+  border: none;          /* Removes black border */
+  color: inherit;         /* Inherits color from parent */
+  font-size: 12px;
+  padding: 2px 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+  .top-buttons button:hover {
+  background-color: rgba(0, 0, 0, 0.05); /* optional subtle hover */
+  color: inherit; /* no color change */
+}
+
+
+    input, button {
+      padding: 12px;
+      font-size: 18px;
+      margin: 10px;
+      border: none;
+      border-radius: 5px;
+      width: 100px;
+    }
+
+    input {
+      background-color: #eee;
+      color: #333;
+      border: 1px solid #aaa;
+    }
+
+    #error {
+      color: red;
+      font-size: 14px;
+    }
+
+    #diary {
+      position: absolute;
+      top: 70px;
+      left: 5%;
+      width: 90%;
+      height: calc(100vh - 100px);
+      background-color: white;
+      color: black;
+      font-size: 18px;
+      line-height: 28px;
+      padding: 20px;
+      border: none;
+      outline: none;
+      resize: none;
+      overflow-y: scroll;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        #fff,
+        #fff 25px,
+        #ddd 25px,
+        #ddd 26px
+      );
+      z-index: 2;
+    }
+
+    #status-bar {
+      position: fixed;
+      bottom: 10px;
+      left: 20px;
+      font-size: 14px;
+      color: green;
+      font-style: italic;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="star-canvas"></canvas>
+
+  <!-- Login Page -->
+  <div id="login-page">
+    <h2>🔐 Enter Secret Password</h2>
+    <input type="password" id="password-input" placeholder="Enter secret password">
+    <button onclick="login()">Login</button>
+    <p id="error"></p>
+  </div>
+
+  <!-- Diary Page -->
+  <div id="diary-page" style="display: none;">
+    <div id="diary-header">
+      📝 My Secret Diary
+      <div class="top-buttons">
+        <button id="download">Download</button>
+        <button id="stopStars">Stop Stars</button>
+        <button id="logout">Logout</button>
+      </div>
+    </div>
+    <textarea id="diary" placeholder="Write your secrets here..."></textarea>
+    <p id="status-bar">Saved</p>
+  </div>
+
+  <script>
+    const SECRET_PASSWORD = "open123";
+    const loginPage = document.getElementById("login-page");
+    const diaryPage = document.getElementById("diary-page");
+    const passwordInput = document.getElementById("password-input");
+    const error = document.getElementById("error");
+    const diary = document.getElementById("diary");
+    const statusBar = document.getElementById("status-bar");
+
+    function login() {
+      if (passwordInput.value === SECRET_PASSWORD) {
+        localStorage.setItem("authenticated", "true");
+        showDiary();
+      } else {
+        error.textContent = "❌ Incorrect password!";
+      }
+    }
+
+    function showDiary() {
+      loginPage.style.display = "none";
+      diaryPage.style.display = "block";
+      loadDiary();
+    }
+
+    function loadDiary() {
+      const content = localStorage.getItem("diary_main") || "";
+      diary.value = content;
+    }
+
+    function saveDiary() {
+      localStorage.setItem("diary_main", diary.value);
+      statusBar.textContent = "Saved";
+      setTimeout(() => statusBar.textContent = "", 1000);
+    }
+
+    function downloadDiary() {
+      const text = diary.value;
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "MySecretDiary.txt";
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function logout() {
+      localStorage.removeItem("authenticated");
+      location.reload();
+    }
+
+    diary.addEventListener("input", saveDiary);
+
+   window.onload = () => {
+  localStorage.removeItem("authenticated"); // forces login every time
+};
+
+
+    // Falling Stars
+    const canvas = document.getElementById("star-canvas");
+    const ctx = canvas.getContext("2d");
+    let stars = [];
+    let animationId;
+    let starsEnabled = true;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+ function createStar() {
+  const size = Math.random() * 6 + 4;  // 🎯 Bigger stars: between 4 and 10 pixels
+  return {
+    x: Math.random() * canvas.width,
+    y: -10,
+    size,
+    speed: Math.random() * 0.1 + 0.02  // Optional: even slower falling
+  };
+}
+
+
+
+
+
+   function drawStar(star) {
+  const spikes = 5;
+  const outerRadius = star.size;
+  const innerRadius = star.size / 2;
+  let rot = Math.PI / 2 * 3;
+  let x = star.x;
+  let y = star.y;
+  let step = Math.PI / spikes;
+
+  ctx.beginPath();
+  ctx.moveTo(x, y - outerRadius);
+  for (let i = 0; i < spikes; i++) {
+    x = star.x + Math.cos(rot) * outerRadius;
+    y = star.y + Math.sin(rot) * outerRadius;
+    ctx.lineTo(x, y);
+    rot += step;
+
+    x = star.x + Math.cos(rot) * innerRadius;
+    y = star.y + Math.sin(rot) * innerRadius;
+    ctx.lineTo(x, y);
+    rot += step;
+  }
+  ctx.lineTo(star.x, star.y - outerRadius);
+  ctx.closePath();
+  ctx.fillStyle = "gold";
+  ctx.fill();
+}
+
+
+    function updateStars() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // ✅ Use this line to control how many stars are on screen
+  if (stars.length < 30) stars.push(createStar());
+
+  stars.forEach((star, i) => {
+    star.y += star.speed;
+    drawStar(star);
+
+    if (star.y > canvas.height) {
+      stars.splice(i, 1);
+    }
+  });
+
+  animationId = requestAnimationFrame(updateStars);
+}
+
+
+    function toggleStars() {
+      if (starsEnabled) {
+        cancelAnimationFrame(animationId);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        starsEnabled = false;
+        document.getElementById("stopStars").textContent = "Start Stars";
+      } else {
+        starsEnabled = true;
+        updateStars();
+        document.getElementById("stopStars").textContent = "Stop Stars";
+      }
+    }
+
+    // Attach Button Events
+    document.getElementById("download").addEventListener("click", downloadDiary);
+    document.getElementById("logout").addEventListener("click", logout);
+    document.getElementById("stopStars").addEventListener("click", toggleStars);
+
+    updateStars();
+  </script>
+
+</body>
+</html>
